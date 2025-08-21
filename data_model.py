@@ -120,3 +120,56 @@ class Video(ContentManageable):
 
     def __str__(self):
         return f'Video ({self.pk})'
+
+class Calendar(ContentManageable):
+    url = models.URLField('URL iCal', blank=True, null=True)
+    rss = models.URLField('RSS Feed', blank=True, null=True)
+    embed = models.URLField('URL embed', blank=True, null=True)
+    twitter = models.URLField('Twitter feed', blank=True, null=True)
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(unique=True)
+    description = models.CharField(max_length=255, null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse('events:event_list', kwargs={'calendar_slug': self.slug})
+
+    def import_events(self):
+        if self.url is None:
+            raise ValueError("calendar must have a url field set")
+        from .importer import ICSImporter
+        importer = ICSImporter(calendar=self)
+        importer.import_events()
+
+
+class EventCategory(NameSlugModel):
+    calendar = models.ForeignKey(
+        Calendar,
+        related_name='categories',
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+    )
+
+    class Meta:
+        verbose_name_plural = 'event categories'
+        ordering = ('name',)
+
+    def get_absolute_url(self):
+        return reverse('events:eventlist_category', kwargs={'calendar_slug': self.calendar.slug, 'slug': self.slug})
+
+
+class EventLocation(models.Model):
+    calendar = models.ForeignKey(
+        Calendar,
+        related_name='locations',
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+    )
+
+    name = models.CharField(max_length=255)
+    address = models.CharField(blank=True, null=True, max_length=255)
+    url = models.URLField('URL', blank=True, null=True)
